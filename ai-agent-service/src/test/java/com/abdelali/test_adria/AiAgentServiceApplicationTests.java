@@ -5,6 +5,10 @@ import com.abdelali.test_adria.agent.BankingAgentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,7 +37,15 @@ class AiAgentServiceApplicationTests {
     void chatFailsClearlyWithoutApiKeyRatherThanFabricatingBankData() {
         assertThatThrownBy(() -> agent.chat("What is my account balance?"))
                 .isInstanceOf(AgentUnavailableException.class)
-                .hasMessageContaining("OPENAI_API_KEY");
+                .hasMessageContaining("GROQ_API_KEY");
+    }
+
+    @Test
+    void browserChatPageIsPackagedWithTheApplication() throws IOException {
+        ClassPathResource page = new ClassPathResource("static/chat.html");
+        assertThat(page.exists()).isTrue();
+        String html = page.getContentAsString(StandardCharsets.UTF_8);
+        assertThat(html).contains("Adria Banking AI", "/agent/chat", "/agent/tools");
     }
 
     @Test

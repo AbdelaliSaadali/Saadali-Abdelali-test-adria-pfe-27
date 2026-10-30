@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adria Banking AI</title>
+</head>
+<body>
+  <h1>Adria Banking AI</h1>
+  <p>Banking assistant using Groq and MCP tools.</p>
+  <p id="status">Checking connected services...</p>
+
+  <hr>
+
+  <h2>Chat</h2>
+  <div id="messages" role="log" aria-live="polite">
+    <p><strong>Assistant:</strong> Hello. I can answer questions about demo accounts and transactions.</p>
+  </div>
+
+  <form id="chat">
+    <label for="message">Message:</label>
+    <p>
+      <textarea id="message" name="message" rows="3" cols="60" maxlength="2000" required></textarea>
+    </p>
+    <button id="send" type="submit">Send</button>
+  </form>
+
+  <hr>
+
+  <h2>Connected MCP tools</h2>
+  <ul id="tools">
+    <li>Loading tools...</li>
+  </ul>
+  <p>Local demo only. No authentication. Do not use real customer information.</p>
+  <p>Chat can only read accounts and transaction history. Payments and transfers are disabled.</p>
+
+  <script>
+    const messages = document.getElementById('messages');
+    const form = document.getElementById('chat');
+    const field = document.getElementById('message');
+    const send = document.getElementById('send');
+    const status = document.getElementById('status');
+    const tools = document.getElementById('tools');
+
+    function addMessage(who, content) {
+      const entry = document.createElement('div');
+      const heading = document.createElement('strong');
+      heading.textContent = who + ':';
+      const body = document.createElement('pre');
+      body.textContent = content;
+      entry.append(heading, body);
+      messages.append(entry);
+      return body;
+    }
+
+    async function loadTools() {
+      try {
+        const response = await fetch('/agent/tools', { cache: 'no-store' });
+        if (!response.ok) throw new Error('MCP tools unavailable');
+        const data = await response.json();
+        tools.replaceChildren();
+        for (const tool of data.tools || []) {
+          const item = document.createElement('li');
+          item.textContent = tool;
+          tools.append(item);
+        }
+        status.textContent = data.toolCount + ' MCP tools connected';
+      } catch {
+        tools.replaceChildren();
+        const item = document.createElement('li');
+        item.textContent = 'Cannot load tools';
+        tools.append(item);
+        status.textContent = 'Banking services unavailable';
+      }
+    }
+
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const message = field.value.trim();
+      if (!message || send.disabled) return;
+
+      addMessage('You', message);
+      field.value = '';
+      send.disabled = true;
+      const reply = addMessage('Assistant', 'Thinking...');
+
+      try {
+        const response = await fetch('/agent/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        reply.textContent = response.ok
+          ? (data.reply || 'No answer returned')
+          : (data.error || 'Chat is unavailable');
+      } catch {
+        reply.textContent = 'Could not connect to the AI service.';
+      } finally {
+        send.disabled = false;
+        field.focus();
+      }
+    });
+
+    loadTools();
+  </script>
+</body>
+</html>
