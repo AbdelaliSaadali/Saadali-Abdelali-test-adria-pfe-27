@@ -1,0 +1,43 @@
+enum AccountStatus {
+    ACTIVE
+    BLOCKED
+}
+
+type Account {
+    id: ID!
+    customerReference: String!
+    status: AccountStatus!
+    currency: String!
+    balance: Float!
+}
+
+type TransferResult {
+    source: Account!
+    destination: Account!
+    amount: String!
+}
+
+input CreateAccountInput {
+    customerReference: String!
+    currency: String!
+    initialBalance: String!
+}
+
+input TransferInput {
+    sourceAccountId: ID!
+    destinationAccountId: ID!
+    amount: String!
+}
+
+type Query {
+    accounts: [Account!]!
+    account(id: ID!): Account
+}
+
+type Mutation {
+    createAccount(input: CreateAccountInput!): Account!
+    debitAccount(id: ID!, amount: String!): Account!
+    creditAccount(id: ID!, amount: String!): Account!
+    changeAccountStatus(id: ID!, status: AccountStatus!): Account!
+    transfer(input: TransferInput!): TransferResult!
+}
