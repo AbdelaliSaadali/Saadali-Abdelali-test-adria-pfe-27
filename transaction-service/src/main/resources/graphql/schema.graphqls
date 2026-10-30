@@ -1,0 +1,35 @@
+type Transaction {
+    id: ID!
+    accountId: ID!
+    amount: String!
+    currency: String!
+    merchantCategory: String!
+    country: String!
+    createdAt: String!
+}
+
+input CreateTransactionInput {
+    accountId: ID!
+    amount: String!
+    currency: String!
+    merchantCategory: String!
+    country: String!
+}
+
+input TransferFundsInput {
+    sourceAccountId: ID!
+    destinationAccountId: ID!
+    amount: String!
+    currency: String!
+    country: String!
+}
+
+type Query {
+    transaction(id: ID!): Transaction
+    transactionsByAccount(accountId: ID!): [Transaction!]!
+}
+
+type Mutation {
+    createTransaction(input: CreateTransactionInput!): Transaction!
+    transferFunds(input: TransferFundsInput!): Transaction!
+}
