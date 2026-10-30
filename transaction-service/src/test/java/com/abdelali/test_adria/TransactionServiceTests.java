@@ -5,6 +5,7 @@ import com.abdelali.test_adria.clients.AccountClient.AccountSnapshot;
 import com.abdelali.test_adria.clients.AccountClient.AmountPayload;
 import com.abdelali.test_adria.clients.AccountClient.TransferPayload;
 import com.abdelali.test_adria.domain.Transaction;
+import com.abdelali.test_adria.messaging.TransactionCreatedEvent;
 import com.abdelali.test_adria.repository.TransactionRepository;
 import com.abdelali.test_adria.service.TransactionBusinessException;
 import com.abdelali.test_adria.service.TransactionService;
@@ -17,6 +18,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -30,6 +33,7 @@ class TransactionServiceTests {
 
     @Mock TransactionRepository repository;
     @Mock AccountClient accounts;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     private TransactionService service;
 
@@ -38,7 +42,7 @@ class TransactionServiceTests {
 
     @BeforeEach
     void setUp() {
-        service = new TransactionService(repository, accounts, new BigDecimal("1000"));
+        service = new TransactionService(repository, accounts, eventPublisher, new BigDecimal("1000"));
     }
 
     @Test
@@ -55,6 +59,17 @@ class TransactionServiceTests {
         order.verify(accounts).getAccount(accountId);
         order.verify(repository).saveAndFlush(any(Transaction.class));
         order.verify(accounts).debit(eq(accountId), eq(new AmountPayload(new BigDecimal("250.00"))));
+
+        ArgumentCaptor<TransactionCreatedEvent> captured = ArgumentCaptor.forClass(TransactionCreatedEvent.class);
+        verify(eventPublisher).publishEvent(captured.capture());
+        TransactionCreatedEvent event = captured.getValue();
+        assertThat(event.eventId()).isNotNull();
+        assertThat(event.type()).isEqualTo("TransactionCreated");
+        assertThat(event.transactionId()).isEqualTo(result.id());
+        assertThat(event.accountId()).isEqualTo(accountId);
+        assertThat(event.amount()).isEqualByComparingTo("250.00");
+        assertThat(event.currency()).isEqualTo("EUR");
+        assertThat(event.occurredAt()).isEqualTo(result.createdAt());
     }
 
     @Test
@@ -141,6 +156,7 @@ class TransactionServiceTests {
         verify(accounts).transfer(new TransferPayload(
                 accountId, destinationId, new BigDecimal("120.00")));
         verify(accounts, never()).debit(any(), any());
+        verify(eventPublisher).publishEvent(isA(TransactionCreatedEvent.class));
     }
 
     @Test
@@ -162,6 +178,7 @@ class TransactionServiceTests {
         assertThatThrownBy(() -> service.create(request(accountId, "100", "EUR")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("remote debit failed");
+        verifyNoInteractions(eventPublisher);
     }
 
     private CreateTransactionRequest request(UUID id, String amount, String currency) {

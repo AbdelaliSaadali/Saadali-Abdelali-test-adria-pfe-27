@@ -5,12 +5,14 @@ import com.abdelali.test_adria.clients.AccountClient.AccountSnapshot;
 import com.abdelali.test_adria.clients.AccountClient.AmountPayload;
 import com.abdelali.test_adria.clients.AccountClient.TransferPayload;
 import com.abdelali.test_adria.domain.Transaction;
+import com.abdelali.test_adria.messaging.TransactionCreatedEvent;
 import com.abdelali.test_adria.repository.TransactionRepository;
 import com.abdelali.test_adria.service.dto.CreateTransactionRequest;
 import com.abdelali.test_adria.service.dto.CreateTransferRequest;
 import com.abdelali.test_adria.service.dto.TransactionResponse;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,17 +37,20 @@ public class TransactionService {
 
     private final TransactionRepository repository;
     private final AccountClient accounts;
+    private final ApplicationEventPublisher eventPublisher;
     private final BigDecimal maxAmount;
 
     public TransactionService(
             TransactionRepository repository,
             AccountClient accounts,
+            ApplicationEventPublisher eventPublisher,
             @Value("${bank.transaction.max-amount:1000}") BigDecimal maxAmount) {
         if (maxAmount == null || maxAmount.signum() <= 0) {
             throw new IllegalArgumentException("Maximum transaction amount must be positive");
         }
         this.repository = repository;
         this.accounts = accounts;
+        this.eventPublisher = eventPublisher;
         this.maxAmount = maxAmount;
     }
 
@@ -70,7 +75,9 @@ public class TransactionService {
         // The account service atomically rechecks its balance under a DB lock.
         // A failed debit causes this local transaction to roll back.
         accounts.debit(accountId, new AmountPayload(amount));
-        return toResponse(saved);
+        TransactionResponse response = toResponse(saved);
+        eventPublisher.publishEvent(TransactionCreatedEvent.from(response));
+        return response;
     }
 
     @Transactional
@@ -99,7 +106,9 @@ public class TransactionService {
                 sourceId, amount, currency, "TRANSFER", country));
 
         accounts.transfer(new TransferPayload(sourceId, destinationId, amount));
-        return toResponse(saved);
+        TransactionResponse response = toResponse(saved);
+        eventPublisher.publishEvent(TransactionCreatedEvent.from(response));
+        return response;
     }
 
     @Transactional(readOnly = true)
