@@ -26,6 +26,7 @@
     <modules>
         <module>account-service</module>
         <module>transaction-service</module>
+        <module>discovery-service</module>
     </modules>
 
     <dependencyManagement>
